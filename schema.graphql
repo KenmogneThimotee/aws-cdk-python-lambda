@@ -1,0 +1,43 @@
+
+type Order {
+
+    id: String,
+    createdAt: String,
+    name: String,
+    quatity: Int,
+    user_id: String,
+    orderStatus: String,
+    restaurantId: String
+
+}
+
+input OrderInput {
+
+    name: String!,
+    quatity: Int!,
+    restaurantId: String!
+}
+
+input UpdateOrderInput {
+
+    id: String,
+    name: String,
+    quatity: Int,
+    restaurantId: String!
+}
+
+type Query {
+  orders: [ Order ],
+  order(id: String!): Order
+}
+
+type Mutation {
+    postOrder(input: OrderInput!): Order,
+    updateOrder(input: UpdateOrderInput!): Order,
+    deleteOrder(id: String!): String
+}
+
+type Schema {
+    query: Query
+    mutation: Mutation
+}
