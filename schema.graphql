@@ -1,4 +1,9 @@
 
+type Schema {
+    query: Query
+    mutation: Mutation
+}
+
 type Order {
 
     id: String,
@@ -27,7 +32,7 @@ input UpdateOrderInput {
 }
 
 type Query {
-  orders: [ Order ],
+  orders: [Order],
   order(id: String!): Order
 }
 
@@ -35,9 +40,4 @@ type Mutation {
     postOrder(input: OrderInput!): Order,
     updateOrder(input: UpdateOrderInput!): Order,
     deleteOrder(id: String!): String
-}
-
-type Schema {
-    query: Query
-    mutation: Mutation
 }
