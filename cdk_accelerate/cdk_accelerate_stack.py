@@ -295,14 +295,12 @@ class CdkAccelerateStack(Stack):
                 authorization_type="AWS_IAM",
 
                 aws_iam_config=appsync.CfnDataSource.AwsIamConfigProperty(
-                    signing_region=region,
+                    signing_region="us-east-1",
                     signing_service_name="sqs"
                 )
             )
         )
 
-        
-        
 
         #Data source definition
         lambdaDeleteOrderDs = appsync.CfnDataSource(scope=self, id="lambda-delete-order-ds", api_id=api.attr_api_id, name="lambda_delete_order_ds", type="AWS_LAMBDA",
@@ -318,7 +316,7 @@ class CdkAccelerateStack(Stack):
         lambda_config=lambda_getAll_order_config_property, service_role_arn=lambda_execution_role.role_arn)
 
         lambdaPostOrderDs = appsync.CfnDataSource(scope=self, id="lambda-post-order-ds", api_id=api.attr_api_id, name="lambda_post_order_ds", type="HTTP",
-        http_config=http_config_property)
+        http_config=http_config_property,service_role_arn=lambda_execution_role.role_arn)
         lambdaPostOrderDs.add_dependency(post_function)
         lambdaPostOrderDs.add_dependency(queue)
         
