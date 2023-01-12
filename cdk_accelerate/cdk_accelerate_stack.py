@@ -300,7 +300,7 @@ class CdkAccelerateStack(Stack):
 
                 aws_iam_config=appsync.CfnDataSource.AwsIamConfigProperty(
                     signing_region="us-east-1",
-                    signing_service_name="sqs"
+                    signing_service_name="appsync"
                 )
             )
         )
