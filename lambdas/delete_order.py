@@ -15,7 +15,7 @@ class DecimalEncoder(json.JSONEncoder):
         return super(DecimalEncoder, self).default(o)
 
 def delete_order(event):
-    order_id = event['pathParameters']['orderId']
+    order_id = event['arguments']['id']
     response = table.delete_item(
         Key={
             'id': order_id,
@@ -42,10 +42,7 @@ def handler(event, context):
     """
 
     response = delete_order(event)   
-    return {  
-        "statusCode": 204,
-        "body": json.dumps(response, indent=4, cls=DecimalEncoder)
-    }
+    return response.id
     
 
 

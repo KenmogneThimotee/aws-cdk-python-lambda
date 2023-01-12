@@ -52,14 +52,11 @@ def update_order(order_id, request_payload):
 
 
 def handler(event, context):
-    order_id = event['pathParameters']['orderId']
+    order = event['arguments']['input']
     request_payload = json.loads(event["body"])
-    response = update_order(order_id, request_payload)
+    response = update_order(order.id, order)
     print(f'update_order_response: {response}')
-    return {  
-        'statusCode': 200,
-        'body': json.dumps(response, indent=4, cls=DecimalEncoder)
-    }
+    return order
 
 
 

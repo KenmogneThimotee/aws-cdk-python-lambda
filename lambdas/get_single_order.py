@@ -15,7 +15,7 @@ class DecimalEncoder(json.JSONEncoder):
         return super(DecimalEncoder, self).default(o)
 
 def get_order_by_id(event):
-    order_id = event['pathParameters']['orderId']
+    order_id = event['arguments']['id']
     item = table.get_item(
         Key={
             'id': order_id,
@@ -26,11 +26,9 @@ def get_order_by_id(event):
     return item
 
 def handler(event, context):
+    print("event context : ", event)
     item = get_order_by_id(event)
-    return {  
-        "statusCode": 200,
-        "body": json.dumps(item["Item"], indent=4, cls=DecimalEncoder)
-    }
+    return item
     
 
 

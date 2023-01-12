@@ -129,7 +129,7 @@ class CdkAccelerateStack(Stack):
                 }
             ),
             function_name="delete-order-function",
-            handler="handler",
+            handler="index.handler",
             package_type="Zip",
             runtime="python3.9",
             timeout=123,
@@ -158,7 +158,7 @@ class CdkAccelerateStack(Stack):
                 }
             ),
             function_name="update-order-function",
-            handler="handler",
+            handler="index.handler",
             package_type="Zip",
             runtime="python3.9",
             timeout=123,
@@ -172,6 +172,10 @@ class CdkAccelerateStack(Stack):
         sqs_receiveMessage_role = iam.Role(self, "SQSReceiveMessageRole",
         assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
         managed_policies=[iam.ManagedPolicy.from_managed_policy_arn(self,"sqsReceiveMessage",'arn:aws:iam::aws:policy/AmazonSQSFullAccess')])
+
+        sqs_sendMessage_role = iam.Role(self, "SQSSendMessageRole",
+        assumed_by=iam.ServicePrincipal("appsync.amazonaws.com"),
+        managed_policies=[iam.ManagedPolicy.from_managed_policy_arn(self,"sqsSendMessage",'arn:aws:iam::aws:policy/AmazonSQSFullAccess')])
 
 
         post_function = ''
@@ -193,7 +197,7 @@ class CdkAccelerateStack(Stack):
                 }
             ),
             function_name="post-order-function",
-            handler="handler",
+            handler="index.handler",
             package_type="Zip",
             runtime="python3.9",
             timeout=123,
@@ -231,7 +235,7 @@ class CdkAccelerateStack(Stack):
                 }
             ),
             function_name="get-order-function",
-            handler="handler",
+            handler="index.handler",
             package_type="Zip",
             runtime="python3.9",
             timeout=123,
@@ -260,7 +264,7 @@ class CdkAccelerateStack(Stack):
                 }
             ),
             function_name="get-orders-function",
-            handler="handler",
+            handler="index.handler",
             package_type="Zip",
             runtime="python3.9",
             timeout=123,
@@ -316,7 +320,7 @@ class CdkAccelerateStack(Stack):
         lambda_config=lambda_getAll_order_config_property, service_role_arn=lambda_execution_role.role_arn)
 
         lambdaPostOrderDs = appsync.CfnDataSource(scope=self, id="lambda-post-order-ds", api_id=api.attr_api_id, name="lambda_post_order_ds", type="HTTP",
-        http_config=http_config_property,service_role_arn=lambda_execution_role.role_arn)
+        http_config=http_config_property,service_role_arn=sqs_sendMessage_role.role_arn)
         lambdaPostOrderDs.add_dependency(post_function)
         lambdaPostOrderDs.add_dependency(queue)
         
@@ -344,15 +348,16 @@ class CdkAccelerateStack(Stack):
         ### reading the request mapping template
         request_mapping_template = ''
         with open("requestMappingTemplate.vtl", 'r') as file:
-            request_mapping_template = file.read().replace('\n', '')
+            request_mapping_template = file.read()
         
         account_id = Stack.of(self).account
-        request_mapping_template.format(accountId=account_id, queueName=queue.queue_name)
+        #request_mapping_template = request_mapping_template.format(accountId=account_id, queueName=queue.queue_name)
+        print("mapping template: ", request_mapping_template)
 
         ### reading the response mapping template
         response_mapping_template = ''
         with open("responseMappingTemplate.vtl", 'r') as file:
-            response_mapping_template = file.read().replace('\n', '')
+            response_mapping_template = file.read()
         #### creating the resolver
         post_order = appsync.CfnResolver(self, "post-order",
         api_id=api.attr_api_id,

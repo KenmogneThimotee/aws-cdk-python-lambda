@@ -6,12 +6,8 @@ type Schema {
 
 type Order {
 
-    id: String,
-    createdAt: String,
     name: String,
     quatity: Int,
-    user_id: String,
-    orderStatus: String,
     restaurantId: String
 
 }
@@ -32,7 +28,7 @@ input UpdateOrderInput {
 }
 
 type Query {
-  orders: [Order],
+  orders: [ Order ],
   order(id: String!): Order
 }
 

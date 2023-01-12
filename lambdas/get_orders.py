@@ -30,11 +30,7 @@ def fetch_all_orders(dynamo_client, table_name):
 
 def handler(event, context):
     items = fetch_all_orders(ddb_client, TABLE_NAME)
-    return {  
-        "statusCode": 200,
-        "body": json.dumps(items, indent=4)
-    }
-
+    return [items]
 
 
 
