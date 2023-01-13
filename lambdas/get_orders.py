@@ -6,6 +6,12 @@ from typing import Dict, Any
 ddb_client = boto3.client("dynamodb")
 TABLE_NAME = os.environ.get("ORDER_TABLE")
 
+def process_response(data):
+
+    result = {}
+
+    result['quantity'] = result['quantity']['S']
+
 def fetch_all_orders(dynamo_client, table_name):
     results = []
     last_evaluated_key = None
@@ -30,7 +36,7 @@ def fetch_all_orders(dynamo_client, table_name):
 
 def handler(event, context):
     items = fetch_all_orders(ddb_client, TABLE_NAME)
-    return [items]
+    return items
 
 
 
