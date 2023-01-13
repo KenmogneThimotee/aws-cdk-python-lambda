@@ -37,10 +37,11 @@ def start_sfn_exec(sfn_input, sfn_exec_id):
 
 def handler(event, context):
     new_order_list = []
+    print("event ", event)
     for record in event["Records"]:
         message_id = record["messageId"]
         request_body = json.loads(record["body"])
-        order_data = request_body["data"]
+        order_data = request_body["input"]
         print(f'post_orders reqeust_body {order_data} type: {type(order_data)}')
         sfn_input = assemble_order(message_id, order_data)
         response = start_sfn_exec(sfn_input, message_id)

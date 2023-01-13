@@ -7,7 +7,7 @@ type Schema {
 type Order {
 
     name: String,
-    quatity: Int,
+    quantity: Int,
     restaurantId: String
 
 }
@@ -15,7 +15,7 @@ type Order {
 input OrderInput {
 
     name: String!,
-    quatity: Int!,
+    quantity: Int!,
     restaurantId: String!
 }
 
@@ -23,7 +23,7 @@ input UpdateOrderInput {
 
     id: String,
     name: String,
-    quatity: Int,
+    quantity: Int,
     restaurantId: String!
 }
 

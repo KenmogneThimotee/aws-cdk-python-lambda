@@ -53,8 +53,7 @@ def update_order(order_id, request_payload):
 
 def handler(event, context):
     order = event['arguments']['input']
-    request_payload = json.loads(event["body"])
-    response = update_order(order.id, order)
+    response = update_order(order['id'], order)
     print(f'update_order_response: {response}')
     return order
 
