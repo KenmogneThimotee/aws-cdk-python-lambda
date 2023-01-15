@@ -1,0 +1,16 @@
+
+#set ($body = "Action=SendMessage&Version=2012-11-05")
+#set ($messageBody = $util.urlEncode($util.toJson($ctx.args.input)))
+#set ($queueUrl = $util.urlEncode("https://sqs.us-east-1.amazonaws.com/922952267456/sqs-queue"))
+#set ($body = "$body&MessageBody=$messageBody&QueueUrl=$queueUrl&MessageAttribute={}")
+{
+  "version": "2018-05-29",
+  "method": "POST",
+  "resourcePath": "/922952267456/sqs-queue/?$body",
+  "params": {
+    "body": "$body",
+    "headers": {
+      "Content-Type" : "application/json"
+    }
+  }
+}

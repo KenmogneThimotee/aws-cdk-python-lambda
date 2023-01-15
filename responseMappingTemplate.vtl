@@ -1,0 +1,7 @@
+#if ( $ctx.error )
+    $util.appendError($ctx.error.message, $ctx.error.type)
+    #set($defaultPost = $ctx.arguments.input)
+    $util.toJson($defaultPost)
+#else
+    $util.toJson($ctx.arguments.input)
+#end
