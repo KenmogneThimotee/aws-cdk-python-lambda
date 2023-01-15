@@ -15,8 +15,11 @@ from aws_cdk.aws_lambda_event_sources import SqsEventSource
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_sns as sns
 from aws_cdk import aws_dynamodb as dynamodb
-
-
+import aws_cdk.aws_logs as logs
+import aws_cdk.aws_stepfunctions as stepfunctions
+from aws_cdk import aws_stepfunctions_tasks as tasks
+from string import Template
+import json
 
 
 dirname = path.dirname(__file__)
@@ -59,7 +62,9 @@ class CdkAccelerateStack(Stack):
             queue_name="sqs-queue"
         )
 
-        deadLetterQueue = sqs.DeadLetterQueue(max_receive_count=100, queue=queue)
+        
+
+        deadLetterQueue = sqs.DeadLetterQueue(max_receive_count=1, queue=queue)
         
         sqs_role = iam.Role(self, "GrantSendMessage",
             assumed_by=iam.AnyPrincipal(),
@@ -88,9 +93,22 @@ class CdkAccelerateStack(Stack):
         )
 
         # APPSYNC
+
+        cloudWatch_log_role = iam.Role(self, "CloudWatchLogRole",
+            assumed_by=iam.ServicePrincipal("appsync.amazonaws.com"),
+            managed_policies=[iam.ManagedPolicy.from_managed_policy_arn(self,"cloudWatchLogRole",'arn:aws:iam::aws:policy/CloudWatchLogsFullAccess')])
+
+        log_config= appsync.CfnGraphQLApi.LogConfigProperty(
+        cloud_watch_logs_role_arn=cloudWatch_log_role.role_arn,
+        exclude_verbose_content=False,
+        field_log_level="ALL")
+
+
         api = appsync.CfnGraphQLApi(self, "Api", 
         name="demo",
-        authentication_type="API_KEY"
+        authentication_type="API_KEY",
+        xray_enabled=True,
+        log_config=log_config
         )
 
         api.add_dependency(queue)
@@ -104,10 +122,209 @@ class CdkAccelerateStack(Stack):
 
         # Lambda functions
 
+        lambda_step_function_role = iam.Role(self, "LambdaStepFunctionRole",
+        assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
+        managed_policies=[iam.ManagedPolicy.from_aws_managed_policy_name('AmazonDynamoDBFullAccess'),
+        iam.ManagedPolicy.from_aws_managed_policy_name('AmazonSNSFullAccess')])
+
+
+        cancel_failed_order = ''
+        with open("lambdas/cancel_failed_order.py", 'r') as file:
+            cancel_failed_order = file.read()
+
+        cancel_failed_order_function = lambda_.CfnFunction(self, "cancel-failed-order-function",
+            code=lambda_.CfnFunction.CodeProperty(
+                zip_file=cancel_failed_order
+            ),
+            role=lambda_step_function_role.role_arn,
+
+            # the properties below are optional
+            architectures=["x86_64"],
+            description="lambda-ds",
+            environment=lambda_.CfnFunction.EnvironmentProperty(
+                variables={
+                    "ORDER_TABLE": "ORDER",
+                    "TOPIC_ARN": cfn_topic.attr_topic_arn
+                }
+            ),
+            function_name="cancel-failed-order-function",
+            handler="index.handler",
+            package_type="Zip",
+            runtime="python3.9",
+            timeout=123,
+            tracing_config=lambda_.CfnFunction.TracingConfigProperty(
+                mode="Active"
+            )
+        )
+
+        complete_order = ''
+        with open("lambdas/complete_order.py", 'r') as file:
+            complete_order = file.read()
+
+        complete_order_function = lambda_.CfnFunction(self, "complete-order-function",
+            code=lambda_.CfnFunction.CodeProperty(
+                zip_file=complete_order
+            ),
+            role=lambda_step_function_role.role_arn,
+
+            # the properties below are optional
+            architectures=["x86_64"],
+            description="lambda-ds",
+            environment=lambda_.CfnFunction.EnvironmentProperty(
+                variables={
+                    "ORDER_TABLE": "ORDER",
+                    "TOPIC_ARN": cfn_topic.attr_topic_arn
+                }
+            ),
+            function_name="complete-order-function",
+            handler="index.handler",
+            package_type="Zip",
+            runtime="python3.9",
+            timeout=123,
+            tracing_config=lambda_.CfnFunction.TracingConfigProperty(
+                mode="Active"
+            )
+        )
+
+
+        initialize_order = ''
+        with open("lambdas/initialize_order.py", 'r') as file:
+            initialize_order = file.read()
+
+        initialize_order_function = lambda_.CfnFunction(self, "initialize-order-function",
+            code=lambda_.CfnFunction.CodeProperty(
+                zip_file=initialize_order
+            ),
+            role=lambda_step_function_role.role_arn,
+
+            # the properties below are optional
+            architectures=["x86_64"],
+            description="lambda-ds",
+            environment=lambda_.CfnFunction.EnvironmentProperty(
+                variables={
+                    "ORDER_TABLE": "ORDER",
+                    "TOPIC_ARN": cfn_topic.attr_topic_arn
+                }
+            ),
+            function_name="initialize-order-function",
+            handler="index.handler",
+            package_type="Zip",
+            runtime="python3.9",
+            timeout=123,
+            tracing_config=lambda_.CfnFunction.TracingConfigProperty(
+                mode="Active"
+            )
+        )
+
+        process_payment = ''
+        with open("lambdas/process_payment.py", 'r') as file:
+            process_payment = file.read()
+
+        process_payment_function = lambda_.CfnFunction(self, "process-payment-function",
+            code=lambda_.CfnFunction.CodeProperty(
+                zip_file=process_payment
+            ),
+            role=lambda_step_function_role.role_arn,
+
+            # the properties below are optional
+            architectures=["x86_64"],
+            description="lambda-ds",
+            environment=lambda_.CfnFunction.EnvironmentProperty(
+                variables={
+                    "ORDER_TABLE": "ORDER",
+                    "TOPIC_ARN": cfn_topic.attr_topic_arn
+                }
+            ),
+            function_name="process-payment-function",
+            handler="index.handler",
+            package_type="Zip",
+            runtime="python3.9",
+            timeout=123,
+            tracing_config=lambda_.CfnFunction.TracingConfigProperty(
+                mode="Active"
+            )
+        )
+
+        initialize_order_task = tasks.LambdaInvoke(self, "Initialize order",
+            lambda_function=initialize_order_function,
+        )
+
+        complete_order_task = tasks.LambdaInvoke(self, "Complete order",
+            lambda_function=complete_order_function,
+        )
+
+        cancel_failed_order_task = tasks.LambdaInvoke(self, "Cancel order",
+            lambda_function=cancel_failed_order_function,
+        )
+
+        process_payment_task = tasks.LambdaInvoke(self, "Process payment",
+            lambda_function=process_payment_function,
+        )
+
+        choice_task = stepfunctions.Choice(self, "Payment choice").when(stepfunctions.Condition.string_matches("$.paymentResult.status", "ok"), complete_order_task).otherwise(cancel_failed_order_task)
+        
+        process_order_state = stepfunctions.Chain.start(initialize_order_task)
+        process_payment_state = process_order_state.next(process_payment_task)
+        process_payment_state.next(choice_task)
+
+
+
         ##Execution role
         lambda_execution_role = iam.Role(self, "LambdaExecutionRole",
-            assumed_by=iam.ServicePrincipal("appsync.amazonaws.com"),
+            assumed_by=iam.AnyPrincipal(),
             managed_policies=[iam.ManagedPolicy.from_managed_policy_arn(self,"lambdaexecution",'arn:aws:iam::aws:policy/service-role/AWSLambdaRole')])
+        
+        sqs_sendMessage_role = iam.Role(self, "SQSSendMessageRole",
+        assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
+        managed_policies=[iam.ManagedPolicy.from_managed_policy_arn(self,"sqsSendMessage",'arn:aws:iam::aws:policy/AmazonSQSFullAccess'),
+        iam.ManagedPolicy.from_managed_policy_arn(self,"cloudWatchLogRole-forLambda",'arn:aws:iam::aws:policy/CloudWatchLogsFullAccess')])
+
+        workflow = ''
+        with open("step-function-workflow/workflow.json", 'r') as file:
+            workflow = file.read()
+
+        workflow = Template(workflow).substitute(InitializeOrderArn=initialize_order_function.attr_arn,
+        ProcessPaymentArn=process_payment_function.attr_arn,CompleteOrderArn=complete_order_function.attr_arn,
+        CancelFailedOrderArn=cancel_failed_order_function.attr_arn,dollar="$")
+
+        print(workflow)
+
+        simple_state_machine = stepfunctions.CfnStateMachine(self, "SimpleStateMachine",
+            definition=json.loads(workflow),
+            role_arn=lambda_execution_role.role_arn
+        )
+
+        #simple_state_machine.add_dependency(initialize_order_task)
+        
+
+        sendSQSMessage_code = ''
+        with open("lambdas/sendSQSMessage.py", 'r') as file:
+            sendSQSMessage_code = file.read()
+
+        sendSQSMessage_function = lambda_.CfnFunction(self, "send-sqs-event",
+            code=lambda_.CfnFunction.CodeProperty(
+                zip_file=sendSQSMessage_code
+            ),
+            role=sqs_sendMessage_role.role_arn,
+
+            # the properties below are optional
+            architectures=["x86_64"],   
+            description="lambda-ds",
+            environment=lambda_.CfnFunction.EnvironmentProperty(
+                variables={
+                    "QueueUrl": queue.attr_queue_url
+                }
+            ),
+            function_name="send-sqs-function",
+            handler="index.handler",
+            package_type="Zip",
+            runtime="python3.9",
+            timeout=123,
+            tracing_config=lambda_.CfnFunction.TracingConfigProperty(
+                mode="Active"
+            )
+        )
+        
 
         ## Delete order function
         delete_function = ''
@@ -171,11 +388,9 @@ class CdkAccelerateStack(Stack):
         ## Post order function
         sqs_receiveMessage_role = iam.Role(self, "SQSReceiveMessageRole",
         assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
-        managed_policies=[iam.ManagedPolicy.from_managed_policy_arn(self,"sqsReceiveMessage",'arn:aws:iam::aws:policy/AmazonSQSFullAccess')])
-
-        sqs_sendMessage_role = iam.Role(self, "SQSSendMessageRole",
-        assumed_by=iam.ServicePrincipal("appsync.amazonaws.com"),
-        managed_policies=[iam.ManagedPolicy.from_managed_policy_arn(self,"sqsSendMessage",'arn:aws:iam::aws:policy/AmazonSQSFullAccess')])
+        managed_policies=[iam.ManagedPolicy.from_managed_policy_arn(self,"sqsReceiveMessage",'arn:aws:iam::aws:policy/AmazonSQSFullAccess'),
+        iam.ManagedPolicy.from_managed_policy_arn(self,"cloudWatchLogRole-forLambda-post",'arn:aws:iam::aws:policy/CloudWatchLogsFullAccess'),
+        iam.ManagedPolicy.from_aws_managed_policy_name('AWSStepFunctionsFullAccess')])
 
 
         post_function = ''
@@ -193,7 +408,8 @@ class CdkAccelerateStack(Stack):
             description="lambda-ds",
             environment=lambda_.CfnFunction.EnvironmentProperty(
                 variables={
-                    "ORDER_TABLE": "ORDER"
+                    "ORDER_TABLE": "ORDER",
+                    "STATE_MACHINE_ARN": simple_state_machine.attr_arn
                 }
             ),
             function_name="post-order-function",
@@ -205,6 +421,7 @@ class CdkAccelerateStack(Stack):
                 mode="Active"
             )
         )
+
         event_source_mapping = lambda_.EventSourceMapping(scope=self, id="MyEventSourceMapping",
             target=post_function,
             batch_size=5,
@@ -290,19 +507,8 @@ class CdkAccelerateStack(Stack):
             lambda_function_arn=getAllDs_function.attr_arn
         )
         
-        region = Stack.of(self).region
-        print("region", region)
-        http_config_property = appsync.CfnDataSource.HttpConfigProperty(
-            endpoint=queue.attr_queue_url,
-
-            authorization_config=appsync.CfnDataSource.AuthorizationConfigProperty(
-                authorization_type="AWS_IAM",
-
-                aws_iam_config=appsync.CfnDataSource.AwsIamConfigProperty(
-                    signing_region="us-east-1",
-                    signing_service_name="appsync"
-                )
-            )
+        lambda_send_sqs_message_config_property = appsync.CfnDataSource.LambdaConfigProperty(
+            lambda_function_arn=sendSQSMessage_function.attr_arn
         )
 
 
@@ -319,10 +525,9 @@ class CdkAccelerateStack(Stack):
         lambdaGetAllOrderDs = appsync.CfnDataSource(scope=self, id="lambda-getAll-order-ds", api_id=api.attr_api_id, name="lambda_getAll_order_ds", type="AWS_LAMBDA",
         lambda_config=lambda_getAll_order_config_property, service_role_arn=lambda_execution_role.role_arn)
 
-        lambdaPostOrderDs = appsync.CfnDataSource(scope=self, id="lambda-post-order-ds", api_id=api.attr_api_id, name="lambda_post_order_ds", type="HTTP",
-        http_config=http_config_property,service_role_arn=sqs_sendMessage_role.role_arn)
-        lambdaPostOrderDs.add_dependency(post_function)
-        lambdaPostOrderDs.add_dependency(queue)
+        lambdaSendSQSMessqgeDs = appsync.CfnDataSource(scope=self, id="lambda-post-order-ds", api_id=api.attr_api_id, name="lambda_post_order_ds", type="AWS_LAMBDA",
+        lambda_config=lambda_send_sqs_message_config_property, service_role_arn=lambda_execution_role.role_arn)
+        lambdaSendSQSMessqgeDs.add_dependency(queue)
         
 
         #Resolvers
@@ -345,29 +550,14 @@ class CdkAccelerateStack(Stack):
         get_order.add_dependency(lambdaGetOrderByIdDs)
 
         ##  post order resolvers
-        ### reading the request mapping template
-        request_mapping_template = ''
-        with open("requestMappingTemplate.vtl", 'r') as file:
-            request_mapping_template = file.read()
-        
-        account_id = Stack.of(self).account
-        #request_mapping_template = request_mapping_template.format(accountId=account_id, queueName=queue.queue_name)
-        print("mapping template: ", request_mapping_template)
-
-        ### reading the response mapping template
-        response_mapping_template = ''
-        with open("responseMappingTemplate.vtl", 'r') as file:
-            response_mapping_template = file.read()
         #### creating the resolver
         post_order = appsync.CfnResolver(self, "post-order",
         api_id=api.attr_api_id,
         field_name="postOrder",
         type_name="Mutation",
-        data_source_name=lambdaPostOrderDs.name,
-        request_mapping_template=request_mapping_template,
-        response_mapping_template=response_mapping_template)
+        data_source_name=lambdaSendSQSMessqgeDs.name)
         post_order.add_dependency(schema)
-        post_order.add_dependency(lambdaPostOrderDs)
+        post_order.add_dependency(lambdaSendSQSMessqgeDs)
 
         ## update order resolver
         update_order = appsync.CfnResolver(self, "update-order",
