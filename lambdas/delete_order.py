@@ -41,8 +41,8 @@ def handler(event, context):
         Return doc: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html
     """
 
-    response = delete_order(event)   
-    return response.id
+    delete_order(event)   
+    return event['arguments']['id']
     
 
 

@@ -8,9 +8,12 @@ TABLE_NAME = os.environ.get("ORDER_TABLE")
 
 def process_response(data):
 
-    result = {}
+    print(data)
+    data['quantity'] = data['quantity']['N']
+    data['name'] = data['name']['S']
+    data['restaurantId'] = data['restaurantId']['S']
 
-    result['quantity'] = result['quantity']['S']
+    return data
 
 def fetch_all_orders(dynamo_client, table_name):
     results = []
@@ -25,8 +28,9 @@ def fetch_all_orders(dynamo_client, table_name):
             response = dynamo_client.scan(TableName=table_name)
             
         last_evaluated_key = response.get('LastEvaluatedKey')
-
-        results.extend(response['Items'])
+        response = map(process_response, response['Items'])
+        response = list(response)
+        results.extend(response)
 
         if not last_evaluated_key:
             break
